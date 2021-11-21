@@ -22,40 +22,25 @@ class MyInspector extends Inspector:
   def inspect(using Quotes)(tastys: List[Tasty[quotes.type]]): Unit =
     import quotes.reflect.*
 
+    object TagChecker extends TreeTraverser {
+      val forbiddenTypes = Set[(String, String)](
+        ("scala.Predef$", "String")
+      )
 
-    object Traverser extends TreeTraverser {
+      // TODO: only check domain package
       override def traverseTree(tree: Tree)(owner: Symbol): Unit = tree match {
-        case ClassDef(a, DefDef(_, paramss, _, _), c, d, e) =>
-          paramss.collect {
-            case TermParamClause(params) => println(s"term: $params")
-              params
-          }.flatten
-          .collect {
-            case ValDef(_, tpt, _) =>
-              println(tpt.getClass.getName)
-              tpt.tpe match {
-                case TermRef(prefix, name) => println("termref" + prefix + name)
-                case tpe: TypeRef => println("typeref")
-                  println(tpe.qualifier)
-                  println(tpe.typeSymbol)
-                  println(tpe.typeSymbol.owner.fullName)
-
-              //case TypeIdent(name) => println("ident" + name)
-              //case TypeSelect(qual, name) => println("select" + qual + name)
+        case ClassDef(_, DefDef(_, paramss, _, _), _, _, _) =>
+          paramss.collect { case TermParamClause(params) => params }.flatten
+            .collect { case ValDef(_, tpt, _) => tpt.tpe }
+            .collect { case tpe: TypeRef => (tpe.typeSymbol.owner.fullName.toString, tpe.name.toString) } // TODO: can we do this without a tuple?
+            .foreach {
+              ownerAndName =>
+                if(forbiddenTypes.contains(ownerAndName)) println(s"Found a forbidden type: $ownerAndName")
             }
-          }
-          //println(s"$params")
-        //case y @ Ident(x) => println(y.toString + "   " + y.tpe)
         case tree =>
-          //println(owner.toString + owner.name)
           super.traverseTree(tree)(owner)
       }
     }
 
     for tasty <- tastys do
-      //println(tasty.ast)
-      val ast = tasty.ast
-      val shown = ast.show
-      //println(tasty.ast.show)
-      println("========")
-      Traverser.traverseTree(tasty.ast)(Symbol.spliceOwner)
+      TagChecker.traverseTree(tasty.ast)(Symbol.spliceOwner)
