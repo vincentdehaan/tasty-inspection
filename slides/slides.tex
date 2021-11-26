@@ -1,0 +1,112 @@
+\documentclass{beamer}
+
+\usepackage{listings}
+\definecolor{dkgreen}{rgb}{0,0.6,0}
+\definecolor{gray}{rgb}{0.5,0.5,0.5}
+\definecolor{mauve}{rgb}{0.58,0,0.82}
+
+\lstdefinestyle{myScalastyle}{
+  language=scala,
+  aboveskip=2mm,
+  belowskip=2mm,
+  showstringspaces=false,
+  columns=flexible,
+  basicstyle={\small\ttfamily},
+  numbers=none,
+  numberstyle=\small\color{gray},
+  keywordstyle=\color{blue},
+  commentstyle=\color{dkgreen},
+  stringstyle=\color{mauve},
+  frame=single,
+  breaklines=true,
+  breakatwhitespace=true,
+  tabsize=3,
+}
+
+\lstdefinestyle{myTerminal}{
+  frame=tb,
+  aboveskip=2mm,
+  belowskip=2mm,
+  showstringspaces=false,
+  columns=flexible,
+  basicstyle={\small\ttfamily},
+  numbers=none,
+  numberstyle=\small\color{gray},
+  frame=single,
+  breaklines=true,
+  breakatwhitespace=true,
+  tabsize=3,
+}
+
+\beamertemplatenavigationsymbolsempty
+
+\title{Create custom linters using TASTy inspection}
+\author{Vincent de Haan}
+\date{}
+
+\begin{document}
+
+\frame{\maketitle}
+
+\frame{
+  \frametitle{Who am I?}
+
+  \begin{itemize}
+    \item self-employed Scala engineer
+    \item with a background in both law and mathematics
+    \item currently working on smart energy meters
+  \end{itemize}
+}
+
+\frame{
+  \frametitle{Goals for today}
+
+  \begin{itemize}
+    \item What is a TASTy?
+    \item How to inspect it?
+    \item How to create a custom linter?
+  \end{itemize}
+}
+
+\begin{frame}[fragile]
+  \frametitle{How does this work? (Scala 2)}
+  
+  \begin{lstlisting}[style=myScalastyle,frame=none]
+class Foo {
+    def f(i: Int): Int = 1
+    def g(implicit i: Int): Int = 2
+}
+  \end{lstlisting}
+  \pause
+  \begin{lstlisting}[style=myTerminal,frame=none]
+
+> javap Foo   
+Compiled from "Foo.scala"
+public final class Foo {
+  public static int g(int);
+  public static int f(int);
+}
+  \end{lstlisting}
+  
+\end{frame}
+
+\begin{frame}[fragile]
+  \frametitle{How does this work? (Scala 2)}
+
+  \begin{lstlisting}[style=myScalastyle,frame=none]
+object FooClient {
+    implicit val i: Int = 3
+    
+    Foo.g
+    Foo.f // Does not compile
+}
+  \end{lstlisting}
+  
+  \pause
+ 
+  How does the compiler know \texttt{g} takes an implicit?
+\end{frame}
+
+\begin
+
+\end{document}
