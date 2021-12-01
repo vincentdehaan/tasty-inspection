@@ -8,5 +8,5 @@ package object domain {
 
   type ShoeSize = Int @@ ShoeSizeTag
   type ShirtSize = String @@ ShirtSizeTag
-  type FakeString = String
+  type StringAlias = String
 }
