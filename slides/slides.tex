@@ -283,13 +283,173 @@ case class TaggedShoe(brand: Brand, color: Color, size: Size)
   \end{lstlisting}
 \end{frame}
 
-\begin{frame}
+\begin{frame}[fragile]
   \frametitle{Two rules}
   
   \begin{enumerate}
-    \item No case class field has a primitive type.
+    \item No case class field has a primitive type (including String).
+    \begin{lstlisting}[style=myScalastyle,frame=none]
+    case class A(s: String @@ Tag) // OK
+    type TaggedString = String @@ Tag
+    case class B(s: TaggedString) // OK
+    case class C(s: String) // Not OK
+    \end{lstlisting}
+    \pause
     \item No case class field has a type that is a type alias for a primitive type.
+    \begin{lstlisting}[style=myScalastyle,frame=none]
+    type MyString = String
+    case class D(s: MyString) // Not OK
+    \end{lstlisting}
   \end{enumerate}
+\end{frame}
+
+\begin{frame}
+  \frametitle{The tools}
+  
+  \begin{itemize}
+    \item \texttt{TreeTraverser} and \texttt{TreeAccumulator}
+    \item Custom extractors
+  \end{itemize}
+\end{frame}
+
+\begin{frame}[fragile]
+  \frametitle{\texttt{TreeTraverser}}
+  \begin{lstlisting}[style=myScalastyle,frame=none]
+class TagChecker extends TreeTraverser {
+  override def traverseTree(tree: Tree)(owner: Symbol): Unit = tree match {
+    case ??? // must match a case class
+    case tree =>
+      super.traverseTree(tree)(owner)
+  }
+\end{lstlisting}
+  
+\end{frame}
+
+\begin{frame}[fragile]
+\frametitle{Custom extractors}
+\begin{columns}
+\begin{column}{0.6\textwidth}
+  \begin{lstlisting}[style=myTerminal,frame=none]
+TypeDef(package$,Template(DefDef(
+<init>,List(List()),TypeTree[TypeRef(
+TermRef(ThisType(TypeRef(NoPrefix
+,module class <root>)),object scala),
+Unit)],EmptyTree),List(Apply(Select(
+New(TypeTree[TypeRef(TermRef(
+ThisType(TypeRef(NoPrefix,module
+class java)),object lang),Object)]),<init>)
+,List())),ValDef(_,SingletonTypeTree(
+Ident(package)),EmptyTree),List(
+DefDef(writeReplace,List(List()),
+TypeTree[TypeRef(TermRef(
+ThisType(TypeRef(...
+\end{lstlisting}
+\end{column}
+
+\begin{column}{0.4\textwidth}
+\begin{lstlisting}[style=myScalastyle,frame=none]
+tree match {
+  case TypeDef(_, Template(DefDef(_,...
+}
+\end{lstlisting}
+\pause
+\begin{lstlisting}[style=myScalastyle,frame=none]
+tree match {
+  case ClassDef(_, DefDef(_, paramss, _, _), _, _, _) => ???
+}
+\end{lstlisting}
+\end{column}
+\end{columns}
+\end{frame}
+
+\begin{frame}[fragile]
+\frametitle{Rule 1}
+\begin{lstlisting}[style=myScalastyle,frame=none]
+case ClassDef(_, DefDef(_, paramss, _, _), _, _, _) =>
+  paramss.collect { case TermParamClause(params) => params }.flatten
+    .collect { case ValDef(_, tpt, _) => tptToString(tpt) }
+    .foreach {
+      typeName =>
+        if(forbiddenTypes.contains(typeName))
+          println(s"Found a forbidden type: $typeName")
+        }
+      }
+      
+val forbiddenTypes = Set("scala.Predef$.String", "scala.Int") // TODO: add other primitives
+      
+def tptToString(tpt: TypeTree): String = tpt.tpe match {
+  case tpe: TypeRef => tpe.typeSymbol.owner.fullName.toString + "." + tpe.name.toString
+}
+\end{lstlisting}
+\end{frame}
+
+\begin{frame}[fragile]
+\frametitle{\texttt{TreeAccumulator} I}
+\begin{lstlisting}[style=myScalastyle,frame=none]
+object TypeAliasFinder extends TreeAccumulator[Seq[(String, String)]] {
+  def foldTree(acc: Seq[(String, String)], tree: Tree)(owner: Symbol): Seq[(String, String)] = tree match {
+    case ??? // must match: type MyType = String
+    case tree => foldOverTree(aliases, tree)(owner)
+  }
+}
+\end{lstlisting}
+
+\end{frame}
+
+\begin{frame}[fragile]
+\frametitle{\texttt{TreeAccumulator} II}
+\begin{lstlisting}[style=myScalastyle,frame=none]
+object TypeAliasFinder extends TreeAccumulator[Seq[(String, String)]] {
+  def foldTree(acc: Seq[(String, String)], tree: Tree)(owner: Symbol): Seq[(String, String)] = tree match {
+    case TypeDef(name, ti @ TypeIdent(_)) =>
+          foldOverTree(aliases ++ Seq((owner.fullName.toString + "." + name, tptToString(ti))), tree)(owner)
+    case tree => foldOverTree(aliases, tree)(owner)
+  }
+}
+\end{lstlisting}
+
+\end{frame}
+
+\begin{frame}[fragile]
+\frametitle{Rule 1 and 2}
+\begin{lstlisting}[style=myScalastyle,frame=none]
+case ClassDef(_, DefDef(_, paramss, _, _), _, _, _) =>
+  paramss.collect { case TermParamClause(params) => params }.flatten
+    .collect { case ValDef(_, tpt, _) => tptToString(tpt) }
+    .foreach {
+      typeName =>
+        typeAliases.get(typeName) match {
+          case Some(alias) if forbiddenTypes.contains(alias) =>
+            println(s"Found a forbidden type alias: $typeName is actually $alias")
+          case Some(_) =>
+          case None =>
+            if(forbiddenTypes.contains(typeName))
+              println(s"Found a forbidden type: $typeName")
+        }
+    }
+\end{lstlisting}
+\end{frame}
+
+\begin{frame}
+\frametitle{The source code...}
+  
+  ... is on GitHub: https://github.com/vincentdehaan/tasty-inspection
+\end{frame}
+
+\begin{frame}
+\frametitle{Want to learn more?}
+scala3-compiler$\_$3-3.1.0.jar:
+\begin{itemize}
+ \item dotty/tools/backend/dotc/ast/Trees.scala
+ \item scala/quoted/runtime/impl/printers/Extractors.scala
+ \item scala/quoted/runtime/impl/printers/SourceCode.scala
+\end{itemize}
+\end{frame}
+
+\begin{frame}
+\frametitle{Questions?}
+
+
 \end{frame}
 
 \end{document}
