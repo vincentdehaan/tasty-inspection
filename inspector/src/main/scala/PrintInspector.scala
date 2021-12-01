@@ -21,6 +21,7 @@ object PrintInspector:
     } else Seq()
 
 class MyInspector extends Inspector:
+
   def inspect(using Quotes)(tastys: List[Tasty[quotes.type]]): Unit =
     import quotes.reflect.*
 
@@ -30,16 +31,21 @@ class MyInspector extends Inspector:
 
     import TypeAlias.*
 
+    def tptToString(tpt: TypeTree): String = tpt.tpe match {
+      case tpe: TypeRef => tpe.typeSymbol.owner.fullName.toString + "." + tpe.name.toString
+      case _ => "UNSUPPORTED TYPE TREE"
+    }
+
     object TypeAliasFinder extends TreeAccumulator[Seq[(String, TypeAlias)]] {
       def foldTree(aliases: Seq[(String, TypeAlias)], tree: Tree)(owner: Symbol): Seq[(String, TypeAlias)] = tree match {
-        case TypeDef(name, AppliedTypeTree(TypeIdent("@@"), List(Ident(baseType), Ident(tagName)))) => // TypeIdent("@@") yields a compiler warning. Why??
+        case TypeDef(name, tpt @ AppliedTypeTree(TypeIdent("@@"), List(Ident(baseType), Ident(tagName)))) => // TypeIdent("@@") yields a compiler warning. Why??
           println(s"typedef $name $baseType $tagName")
 
           Seq((name, TaggedAlias(baseType, tagName)))
           foldOverTree(aliases ++ Seq((name, TaggedAlias(baseType, tagName))), tree)(owner)
-        case TypeDef(name, TypeIdent(baseType)) =>
+        case TypeDef(name, ti @ TypeIdent(baseType)) =>
           println(s"typedef $name $baseType")
-
+          println(tptToString(ti))
           Seq((name, SimpleAlias(baseType)))
           foldOverTree(aliases ++ Seq((name, SimpleAlias(baseType))), tree)(owner)
         case _ => foldOverTree(aliases, tree)(owner)
@@ -47,19 +53,23 @@ class MyInspector extends Inspector:
     }
 
     class TagChecker(typeAliases: Map[String, TypeAlias]) extends TreeTraverser {
-      val forbiddenTypes = Set[(String, String)](
-        ("scala.Predef$", "String")
+      val forbiddenTypes = Set(
+        "scala.Predef$.String"
       )
 
       // TODO: only check domain package
       override def traverseTree(tree: Tree)(owner: Symbol): Unit = tree match {
         case ClassDef(_, DefDef(_, paramss, _, _), _, _, _) =>
           paramss.collect { case TermParamClause(params) => params }.flatten
-            .collect { case ValDef(_, tpt, _) => tpt.tpe }
-            .collect { case tpe: TypeRef => (tpe.typeSymbol.owner.fullName.toString, tpe.name.toString) } // TODO: can we do this without a tuple?
+            .collect { case ValDef(_, tpt, _) => tptToString(tpt) }
             .foreach {
-              ownerAndName =>
-                if(forbiddenTypes.contains(ownerAndName)) println(s"Found a forbidden type: $ownerAndName")
+              typeName =>
+                typeAliases.get(typeName) match {
+                  case Some(SimpleAlias(baseType)) => forbiddenTypes.contains(baseType)
+                  case Some(_) => false
+                  case None =>
+                }
+                if(forbiddenTypes.contains(typeName)) println(s"Found a forbidden type: $typeName")
             }
         case tree =>
           super.traverseTree(tree)(owner)

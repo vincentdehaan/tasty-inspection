@@ -204,6 +204,7 @@ RuntimeVisibleAnnotations:
 
 \begin{frame}[fragile]
 \frametitle{Can we inspect these \texttt{.tasty} files?}
+\pause
 Yes!
 \pause
 \begin{lstlisting}[style=myScalastyle,frame=none]
@@ -222,7 +223,73 @@ class MyInspector extends Inspector:
          println(tree)
 \end{lstlisting}
 
+\end{frame}
 
+\begin{frame}[fragile]
+\frametitle{A simple example}
+\begin{columns}
+\begin{column}{0.4\textwidth}
+\begin{lstlisting}[style=myScalastyle,frame=none]
+object TestApp extends App {
+  println("Hello world!")
+}
+\end{lstlisting}
+\end{column}
+\pause
+\begin{column}{0.6\textwidth}
+  \begin{lstlisting}[style=myTerminal,frame=none]
+PackageDef(Ident(example),List(ValDef(TestApp,
+Ident(TestApp$),Apply(Select(New(Ident(
+TestApp$)),<init>),List())), TypeDef(
+TestApp$,Template(DefDef(<init>,List(List()),
+TypeTree[TypeRef(TermRef(ThisType(
+TypeRef(NoPrefix,module class <root>)),
+object scala),Unit)],EmptyTree),List(Apply(
+Select(New(TypeTree[TypeRef(TermRef(
+ThisType(TypeRef(NoPrefix,module class
+java)),object lang),Object)]),<init>),
+List()),Ident(App)),ValDef(_,
+SingletonTypeTree(Ident(TestApp)),EmptyTree),
+List(DefDef(writeReplace,List(List()),
+TypeTree[TypeRef(TermRef(ThisType(
+TypeRef(NoPrefix,module class <root>)),
+object scala),AnyRef)],Apply(Select(
+...
+\end{lstlisting}
+\end{column}
+\end{columns}
+
+\end{frame}
+
+
+
+
+
+\begin{frame}[fragile]
+  \frametitle{Use case: tagged types}
+  
+  \begin{lstlisting}[style=myScalastyle,frame=none]
+case class Shoe(brand: String, color: String, size: Int)
+  \end{lstlisting}
+  \pause
+  \begin{lstlisting}[style=myScalastyle,frame=none]
+sealed trait BrandTag
+type Brand = String @@ BrandTag
+...
+  \end{lstlisting}
+  \pause
+    \begin{lstlisting}[style=myScalastyle,frame=none]
+case class TaggedShoe(brand: Brand, color: Color, size: Size)
+  \end{lstlisting}
+\end{frame}
+
+\begin{frame}
+  \frametitle{Two rules}
+  
+  \begin{enumerate}
+    \item No case class field has a primitive type.
+    \item No case class field has a type that is a type alias for a primitive type.
+  \end{enumerate}
 \end{frame}
 
 \end{document}
